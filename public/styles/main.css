@@ -228,3 +228,30 @@ body {
   pointer-events: none;
   z-index: 100;
 }
+
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(6px);
+  z-index: 50;
+  pointer-events: none;
+}
+
+.loading-title {
+  font-size: 1.4rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #d4c4a8;
+}
+
+.loading-sub {
+  font-size: 1rem;
+  font-style: italic;
+  color: #807060;
+  margin-top: 0.5rem;
+}

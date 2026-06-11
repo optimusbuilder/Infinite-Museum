@@ -13,7 +13,7 @@ const ERAS = [
   '1042', '1187', '1264', '1401', '1533', '1678', '1734', '1819', '1891', '1907',
 ];
 
-export function generateRoomBundle(seed) {
+export function generateRoomBundleMock(seed) {
   const themeIndex = hashString(`${seed}:theme`) % ROOM_THEMES.length;
   let themeId = ROOM_THEMES[themeIndex];
 
@@ -49,6 +49,7 @@ export function generateRoomBundle(seed) {
       materials: pickMaterials(seed),
     },
     generatedAt: new Date().toISOString(),
+    source: 'mock',
   };
 }
 

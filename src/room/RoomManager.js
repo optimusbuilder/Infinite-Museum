@@ -1,6 +1,6 @@
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
-import { generateRoomBundle } from './ArtifactGenerator.js';
+import { generateRoomBundle } from './RoomGenerator.js';
 import { RoomCache } from './RoomCache.js';
 import {
   createPathSeed,
@@ -40,7 +40,7 @@ export class RoomManager {
     let bundle = await this.cache.get(seed);
 
     if (!bundle) {
-      bundle = generateRoomBundle(seed);
+      bundle = await generateRoomBundle(seed);
       bundle.roomIndex = index;
       await this.cache.set(bundle);
     }
@@ -60,8 +60,6 @@ export class RoomManager {
     const nextIndex = gameState.museum.roomIndex + 1;
     this.history.push(gameState.museum.roomIndex);
 
-    eventBus.emit(Events.ROOM_TRANSITION, { direction: 'forward', index: nextIndex });
-
     const seed = roomSeed(gameState.museum.pathSeed, nextIndex);
     let bundle = await this.cache.get(seed);
 
@@ -69,7 +67,7 @@ export class RoomManager {
       if (this.prefetchPromise) {
         bundle = await this.prefetchPromise;
       } else {
-        bundle = generateRoomBundle(seed);
+        bundle = await generateRoomBundle(seed);
         bundle.roomIndex = nextIndex;
         await this.cache.set(bundle);
       }
@@ -96,7 +94,7 @@ export class RoomManager {
 
     this.prefetchPromise = this.cache.get(seed).then(async (cached) => {
       if (cached) return cached;
-      const bundle = generateRoomBundle(seed);
+      const bundle = await generateRoomBundle(seed);
       bundle.roomIndex = nextIndex;
       await this.cache.set(bundle);
       return bundle;

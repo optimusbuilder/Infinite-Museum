@@ -10,6 +10,7 @@ import { NavigationBounds } from '../systems/NavigationBounds.js';
 import { PlayerController } from '../systems/PlayerController.js';
 import { tickArtifactIdle } from '../artifacts/ProceduralArtifact.js';
 import { EntryScreen, HintUI } from '../ui/EntryScreen.js';
+import { LoadingUI } from '../ui/LoadingUI.js';
 import { PlaqueUI } from '../ui/PlaqueUI.js';
 
 export class Game {
@@ -67,6 +68,7 @@ export class Game {
     this.entryScreen = new EntryScreen();
     this.plaqueUI = new PlaqueUI();
     this.hintUI = new HintUI();
+    this.loadingUI = new LoadingUI();
   }
 
   setupSystems() {
