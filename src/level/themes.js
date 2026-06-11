@@ -10,7 +10,7 @@ function makeMaterial(color, options = {}) {
   });
 }
 
-function buildShell(floorMat, wallMat, ceilingMat) {
+function buildShell(floorMat, wallMat, ceilingMat, { withDoorways = false } = {}) {
   const { ROOM_WIDTH, ROOM_DEPTH, ROOM_HEIGHT } = WORLD;
   const group = new THREE.Group();
 
@@ -22,15 +22,17 @@ function buildShell(floorMat, wallMat, ceilingMat) {
   floor.receiveShadow = true;
   group.add(floor);
 
-  const wallGeo = new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT);
-  const backWall = new THREE.Mesh(wallGeo, wallMat);
-  backWall.position.set(0, ROOM_HEIGHT / 2, -ROOM_DEPTH / 2);
-  group.add(backWall);
+  if (!withDoorways) {
+    const wallGeo = new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT);
+    const backWall = new THREE.Mesh(wallGeo, wallMat);
+    backWall.position.set(0, ROOM_HEIGHT / 2, -ROOM_DEPTH / 2);
+    group.add(backWall);
 
-  const frontWall = new THREE.Mesh(wallGeo, wallMat);
-  frontWall.position.set(0, ROOM_HEIGHT / 2, ROOM_DEPTH / 2);
-  frontWall.rotation.y = Math.PI;
-  group.add(frontWall);
+    const frontWall = new THREE.Mesh(wallGeo, wallMat);
+    frontWall.position.set(0, ROOM_HEIGHT / 2, ROOM_DEPTH / 2);
+    frontWall.rotation.y = Math.PI;
+    group.add(frontWall);
+  }
 
   const sideGeo = new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT);
   const leftWall = new THREE.Mesh(sideGeo, wallMat);
@@ -63,6 +65,7 @@ export const ROOM_THEMES = {
         makeMaterial(0x3d2b1f, { roughness: 0.7 }),
         makeMaterial(0x2a1f18),
         makeMaterial(0x1a1410),
+        { withDoorways: true },
       );
       const trim = new THREE.Mesh(
         new THREE.BoxGeometry(WORLD.ROOM_WIDTH, 0.15, 0.08),
@@ -79,6 +82,9 @@ export const ROOM_THEMES = {
     pedestalStyle: 'marble',
     doorFrameColor: 0x5c4033,
     doorGlow: 0x221100,
+    corridorFloor: 0x3d2b1f,
+    corridorWall: 0x2a1f18,
+    corridorCeiling: 0x1a1410,
   },
 
   brutalist: {
@@ -89,6 +95,7 @@ export const ROOM_THEMES = {
         makeMaterial(0x5a5a5a, { roughness: 0.95 }),
         makeMaterial(0x707070, { roughness: 1 }),
         makeMaterial(0x404040),
+        { withDoorways: true },
       );
       const ledge = new THREE.Mesh(
         new THREE.BoxGeometry(WORLD.ROOM_WIDTH, 0.3, 0.4),
@@ -105,6 +112,9 @@ export const ROOM_THEMES = {
     pedestalStyle: 'concrete',
     doorFrameColor: 0x606060,
     doorGlow: 0x112244,
+    corridorFloor: 0x505050,
+    corridorWall: 0x606060,
+    corridorCeiling: 0x383838,
   },
 
   glass_pavilion: {
@@ -115,6 +125,7 @@ export const ROOM_THEMES = {
         makeMaterial(0xe8e4dc, { roughness: 0.25 }),
         makeMaterial(0xf5f3ee, { roughness: 0.3 }),
         makeMaterial(0xffffff, { roughness: 0.2 }),
+        { withDoorways: true },
       );
       const panelMat = makeMaterial(0xd0e8ff, {
         roughness: 0.1,
@@ -137,6 +148,9 @@ export const ROOM_THEMES = {
     pedestalStyle: 'marble',
     doorFrameColor: 0xc0c8d0,
     doorGlow: 0x334455,
+    corridorFloor: 0xd8dce4,
+    corridorWall: 0xe8ecf0,
+    corridorCeiling: 0xf8f8fc,
   },
 
   submerged: {
@@ -147,6 +161,7 @@ export const ROOM_THEMES = {
         makeMaterial(0x2a4a4a, { roughness: 0.4 }),
         makeMaterial(0x1e3838),
         makeMaterial(0x142828),
+        { withDoorways: true },
       );
       const algae = new THREE.Mesh(
         new THREE.PlaneGeometry(WORLD.ROOM_WIDTH, 1.2),
@@ -163,6 +178,9 @@ export const ROOM_THEMES = {
     pedestalStyle: 'stone',
     doorFrameColor: 0x2a5050,
     doorGlow: 0x003333,
+    corridorFloor: 0x1e3838,
+    corridorWall: 0x183030,
+    corridorCeiling: 0x102020,
   },
 
   void: {
@@ -201,6 +219,9 @@ export const ROOM_THEMES = {
     pedestalStyle: 'floating',
     doorFrameColor: 0x222244,
     doorGlow: 0x111133,
+    corridorFloor: 0x080810,
+    corridorWall: 0x101018,
+    corridorCeiling: 0x000008,
   },
 };
 
@@ -266,6 +287,10 @@ export function buildExitDoor(theme) {
   group.add(opening);
 
   group.userData.isExit = true;
-  group.userData.interactPosition = new THREE.Vector3(0, 0, -WORLD.ROOM_DEPTH / 2 + 1.5);
+  group.userData.interactPosition = new THREE.Vector3(
+    0,
+    0,
+    -WORLD.ROOM_DEPTH / 2 - WORLD.CORRIDOR_LENGTH + 1.2,
+  );
   return group;
 }

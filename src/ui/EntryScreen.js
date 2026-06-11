@@ -64,7 +64,7 @@ export class HintUI {
 
     eventBus.on(Events.GAME_ENTER, () => this.el.classList.remove('hidden'));
     eventBus.on(Events.PLAYER_NEAR_EXIT, () => {
-      this.el.textContent = 'Press E to enter the next gallery';
+      this.el.textContent = 'Press E at the end of the corridor to enter the next gallery';
       this.el.classList.add('active');
     });
     eventBus.on(Events.PLAYER_LEAVE_EXIT, () => {

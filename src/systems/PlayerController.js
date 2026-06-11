@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PLAYER_CONFIG } from '../core/Constants.js';
-import { eventBus } from '../core/EventBus.js';
+import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 
 export class PlayerController {
@@ -10,6 +10,8 @@ export class PlayerController {
     this.velocity = new THREE.Vector3();
     this.direction = new THREE.Vector3();
     this.moveVector = new THREE.Vector3();
+    this.stepTimer = 0;
+    this.wasMoving = false;
 
     eventBus.on('input:mousemove', ({ movementX, movementY }) => {
       gameState.player.yaw -= movementX * PLAYER_CONFIG.MOUSE_SENSITIVITY;
@@ -37,7 +39,7 @@ export class PlayerController {
     this.camera.rotation.x = gameState.player.pitch;
   }
 
-  update(delta, collisionBounds) {
+  update(delta, navigationBounds) {
     if (!gameState.game.entered || gameState.game.paused) return;
 
     const speed = this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight')
@@ -50,7 +52,9 @@ export class PlayerController {
     if (this.input.isDown('KeyA')) this.direction.x -= 1;
     if (this.input.isDown('KeyD')) this.direction.x += 1;
 
-    if (this.direction.lengthSq() > 0) {
+    const isMoving = this.direction.lengthSq() > 0;
+
+    if (isMoving) {
       this.direction.normalize();
       this.moveVector.copy(this.direction);
       this.moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), gameState.player.yaw);
@@ -58,32 +62,26 @@ export class PlayerController {
 
       const nextX = gameState.player.position.x + this.moveVector.x;
       const nextZ = gameState.player.position.z + this.moveVector.z;
+      const clamped = navigationBounds.clamp(nextX, nextZ);
 
-      if (collisionBounds.containsX(nextX)) {
-        gameState.player.position.x = nextX;
+      gameState.player.position.x = clamped.x;
+      gameState.player.position.z = clamped.z;
+
+      this.stepTimer += delta;
+      const stepInterval = speed > PLAYER_CONFIG.WALK_SPEED ? 0.38 : 0.52;
+      if (this.stepTimer >= stepInterval) {
+        this.stepTimer = 0;
+        eventBus.emit(Events.PLAYER_FOOTSTEP, { speed });
       }
-      if (collisionBounds.containsZ(nextZ)) {
-        gameState.player.position.z = nextZ;
-      }
+    } else {
+      this.stepTimer = 0;
+    }
+
+    if (isMoving !== this.wasMoving) {
+      this.wasMoving = isMoving;
+      eventBus.emit(Events.PLAYER_MOVE, { moving: isMoving });
     }
 
     this.syncCamera();
-  }
-}
-
-export class CollisionBounds {
-  constructor(minX, maxX, minZ, maxZ) {
-    this.minX = minX;
-    this.maxX = maxX;
-    this.minZ = minZ;
-    this.maxZ = maxZ;
-  }
-
-  containsX(x) {
-    return x >= this.minX && x <= this.maxX;
-  }
-
-  containsZ(z) {
-    return z >= this.minZ && z <= this.maxZ;
   }
 }

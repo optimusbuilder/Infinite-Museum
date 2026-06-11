@@ -57,4 +57,8 @@ export const Events = {
   PLAYER_LEAVE_EXIT: 'player:leaveExit',
   PLAQUE_SHOW: 'ui:plaqueShow',
   PLAQUE_HIDE: 'ui:plaqueHide',
+  PLAYER_FOOTSTEP: 'player:footstep',
+  PLAYER_MOVE: 'player:move',
+  ROOM_GENERATING: 'room:generating',
+  ROOM_GENERATED: 'room:generated',
 };

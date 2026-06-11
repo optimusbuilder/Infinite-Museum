@@ -219,3 +219,12 @@ body {
 #hint-bar.active {
   color: #d4c4a8;
 }
+
+#room-fade {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0a;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 100;
+}

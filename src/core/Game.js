@@ -5,7 +5,8 @@ import { gameState } from './GameState.js';
 import { GalleryBuilder } from '../level/GalleryBuilder.js';
 import { RoomManager } from '../room/RoomManager.js';
 import { InputSystem } from '../systems/InputSystem.js';
-import { CollisionBounds, PlayerController } from '../systems/PlayerController.js';
+import { NavigationBounds } from '../systems/NavigationBounds.js';
+import { PlayerController } from '../systems/PlayerController.js';
 import { tickArtifactIdle } from '../artifacts/ProceduralArtifact.js';
 import { EntryScreen, HintUI } from '../ui/EntryScreen.js';
 import { PlaqueUI } from '../ui/PlaqueUI.js';
@@ -17,6 +18,7 @@ export class Game {
     this.roomManager = new RoomManager();
     this.currentGallery = null;
     this.collisionBounds = null;
+    this.navigationBounds = new NavigationBounds();
     this.transitioning = false;
 
     this.init();
@@ -84,7 +86,9 @@ export class Game {
     eventBus.on(Events.ROOM_TRANSITION, async ({ direction }) => {
       if (this.transitioning || direction !== 'forward') return;
       this.transitioning = true;
+      await this.fadeOut();
       await this.roomManager.goForward();
+      await this.fadeIn();
       this.transitioning = false;
     });
   }
@@ -101,9 +105,6 @@ export class Game {
     this.scene.background = new THREE.Color(this.currentGallery.fogColor);
     this.scene.fog = new THREE.FogExp2(this.currentGallery.fogColor, this.currentGallery.fogDensity);
     this.ambientLight.intensity = this.currentGallery.ambientIntensity;
-
-    const b = this.currentGallery.collisionBounds;
-    this.collisionBounds = new CollisionBounds(b.minX, b.maxX, b.minZ, b.maxZ);
 
     const spawn = this.currentGallery.spawnPosition;
     this.player.setPosition(spawn.x, spawn.y, spawn.z);
@@ -157,10 +158,40 @@ export class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  fadeOut() {
+    return this.runFade(0, 1, 350);
+  }
+
+  fadeIn() {
+    return this.runFade(1, 0, 450);
+  }
+
+  runFade(from, to, durationMs) {
+    if (!this.fadeEl) {
+      this.fadeEl = document.createElement('div');
+      this.fadeEl.id = 'room-fade';
+      document.getElementById('ui-root').appendChild(this.fadeEl);
+    }
+    this.fadeEl.style.opacity = String(from);
+    this.fadeEl.style.transition = 'none';
+    this.fadeEl.style.display = 'block';
+
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        this.fadeEl.style.transition = `opacity ${durationMs}ms ease`;
+        this.fadeEl.style.opacity = String(to);
+        setTimeout(() => {
+          if (to === 0) this.fadeEl.style.display = 'none';
+          resolve();
+        }, durationMs);
+      });
+    });
+  }
+
   animate() {
     const delta = this.clock.getDelta();
-    if (this.collisionBounds && gameState.game.entered) {
-      this.player.update(delta, this.collisionBounds);
+    if (this.navigationBounds && gameState.game.entered) {
+      this.player.update(delta, this.navigationBounds);
     }
     if (this.currentGallery?.artifactMesh) {
       tickArtifactIdle(this.currentGallery.artifactMesh, delta);
