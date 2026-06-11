@@ -22,7 +22,7 @@ function resolveLlmConfig(env) {
     geminiKey,
     openaiKey,
     provider: provider === 'openai' ? 'openai' : provider === 'gemini' ? 'gemini' : undefined,
-    geminiModel: env.GEMINI_MODEL || 'gemini-2.0-flash',
+    geminiModel: env.GEMINI_MODEL || 'gemini-2.5-flash',
     openaiModel: env.OPENAI_MODEL || 'gpt-4o-mini',
   };
 }

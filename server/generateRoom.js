@@ -142,7 +142,7 @@ export async function generateRoomFromLLM(seed, options = {}) {
     geminiKey,
     openaiKey,
     provider = geminiKey ? 'gemini' : 'openai',
-    geminiModel = 'gemini-2.0-flash',
+    geminiModel = 'gemini-2.5-flash',
     openaiModel = 'gpt-4o-mini',
   } = options;
 
