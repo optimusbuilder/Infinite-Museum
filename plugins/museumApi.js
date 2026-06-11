@@ -9,6 +9,24 @@ function readBody(req) {
   });
 }
 
+function resolveLlmConfig(env) {
+  const geminiKey = env.GEMINI_API_KEY;
+  const openaiKey = env.OPENAI_API_KEY;
+  const provider = (env.LLM_PROVIDER || '').toLowerCase();
+
+  if (!geminiKey && !openaiKey) {
+    return null;
+  }
+
+  return {
+    geminiKey,
+    openaiKey,
+    provider: provider === 'openai' ? 'openai' : provider === 'gemini' ? 'gemini' : undefined,
+    geminiModel: env.GEMINI_MODEL || 'gemini-2.0-flash',
+    openaiModel: env.OPENAI_MODEL || 'gpt-4o-mini',
+  };
+}
+
 export function museumApiPlugin(env) {
   return {
     name: 'museum-api',
@@ -19,11 +37,13 @@ export function museumApiPlugin(env) {
           return;
         }
 
-        const apiKey = env.OPENAI_API_KEY;
-        if (!apiKey) {
+        const llmConfig = resolveLlmConfig(env);
+        if (!llmConfig) {
           res.statusCode = 503;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }));
+          res.end(JSON.stringify({
+            error: 'Set GEMINI_API_KEY or OPENAI_API_KEY in .env to enable live generation',
+          }));
           return;
         }
 
@@ -37,7 +57,7 @@ export function museumApiPlugin(env) {
             return;
           }
 
-          const bundle = await generateRoomFromLLM(seed, apiKey);
+          const bundle = await generateRoomFromLLM(seed, llmConfig);
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify(bundle));

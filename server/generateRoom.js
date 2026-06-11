@@ -32,41 +32,17 @@ JSON schema:
   "visualPrompt": "short phrase for 3D object appearance"
 }`;
 
-export async function generateRoomFromLLM(seed, apiKey) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      temperature: 0.9,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `Generate exhibit catalog entry. Seed: ${seed}. Let the seed inspire a unique civilization and object, but do not mention the seed in the output.`,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`OpenAI API error ${response.status}: ${err}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Empty LLM response');
-
-  const parsed = JSON.parse(content);
-  return normalizeBundle(seed, parsed);
+function userPrompt(seed) {
+  return `Generate exhibit catalog entry. Seed: ${seed}. Let the seed inspire a unique civilization and object, but do not mention the seed in the output.`;
 }
 
-function normalizeBundle(seed, raw) {
+function parseJsonContent(text) {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return JSON.parse(fenced ? fenced[1].trim() : trimmed);
+}
+
+function normalizeBundle(seed, raw, source) {
   const themeId = ALLOWED_THEMES.has(raw.themeId) ? raw.themeId : 'victorian';
   const baseShape = ALLOWED_SHAPES.has(raw.baseShape) ? raw.baseShape : 'relic';
   const materials = (raw.materials ?? [])
@@ -92,7 +68,96 @@ function normalizeBundle(seed, raw) {
       accentColor,
       materials,
     },
-    source: 'llm',
+    source,
     generatedAt: new Date().toISOString(),
   };
+}
+
+async function generateRoomFromGemini(seed, apiKey, model) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: 'user', parts: [{ text: userPrompt(seed) }] }],
+      generationConfig: {
+        temperature: 0.9,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Gemini API error ${response.status}: ${err}`);
+  }
+
+  const data = await response.json();
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) throw new Error('Empty Gemini response');
+
+  const parsed = parseJsonContent(content);
+  return normalizeBundle(seed, parsed, 'gemini');
+}
+
+async function generateRoomFromOpenAI(seed, apiKey, model) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.9,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt(seed) },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI API error ${response.status}: ${err}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Empty OpenAI response');
+
+  const parsed = parseJsonContent(content);
+  return normalizeBundle(seed, parsed, 'openai');
+}
+
+/**
+ * @param {string} seed
+ * @param {{ geminiKey?: string, openaiKey?: string, provider?: string, geminiModel?: string, openaiModel?: string }} options
+ */
+export async function generateRoomFromLLM(seed, options = {}) {
+  const {
+    geminiKey,
+    openaiKey,
+    provider = geminiKey ? 'gemini' : 'openai',
+    geminiModel = 'gemini-2.0-flash',
+    openaiModel = 'gpt-4o-mini',
+  } = options;
+
+  if (provider === 'gemini' && geminiKey) {
+    return generateRoomFromGemini(seed, geminiKey, geminiModel);
+  }
+  if (provider === 'openai' && openaiKey) {
+    return generateRoomFromOpenAI(seed, openaiKey, openaiModel);
+  }
+  if (geminiKey) {
+    return generateRoomFromGemini(seed, geminiKey, geminiModel);
+  }
+  if (openaiKey) {
+    return generateRoomFromOpenAI(seed, openaiKey, openaiModel);
+  }
+
+  throw new Error('No LLM API key configured');
 }

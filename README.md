@@ -15,12 +15,17 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Live AI generation (optional)
 
-Copy `.env.example` to `.env` and add your OpenAI API key:
+Copy `.env.example` to `.env` and add an API key:
 
 ```bash
 cp .env.example .env
-# Edit .env and set OPENAI_API_KEY=sk-...
 ```
+
+**Gemini (recommended)** — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey).
+
+**OpenAI (alternative)** — set `OPENAI_API_KEY` instead.
+
+If both keys are present, Gemini is used by default. Set `LLM_PROVIDER=openai` to prefer OpenAI.
 
 Without a key, exhibits fall back to seeded mock catalog entries. Generated rooms are cached in IndexedDB — revisiting the same seed always shows the same exhibit.
 
