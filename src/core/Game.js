@@ -6,6 +6,9 @@ import { GalleryBuilder } from '../level/GalleryBuilder.js';
 import { RoomManager } from '../room/RoomManager.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { CollisionBounds, PlayerController } from '../systems/PlayerController.js';
+import { tickArtifactIdle } from '../artifacts/ProceduralArtifact.js';
+import { EntryScreen, HintUI } from '../ui/EntryScreen.js';
+import { PlaqueUI } from '../ui/PlaqueUI.js';
 
 export class Game {
   constructor() {
@@ -24,10 +27,10 @@ export class Game {
     this.setupScene();
     this.setupCamera();
     this.setupSystems();
+    this.setupUI();
     this.setupEventListeners();
 
-    const bundle = await this.roomManager.init();
-    this.applyRoom(bundle);
+    await this.roomManager.init();
 
     this.renderer.setAnimationLoop(() => this.animate());
   }
@@ -57,6 +60,12 @@ export class Game {
     );
   }
 
+  setupUI() {
+    this.entryScreen = new EntryScreen();
+    this.plaqueUI = new PlaqueUI();
+    this.hintUI = new HintUI();
+  }
+
   setupSystems() {
     this.input = new InputSystem(this.renderer.domElement);
     this.player = new PlayerController(this.camera, this.input);
@@ -69,9 +78,7 @@ export class Game {
     });
 
     eventBus.on(Events.ROOM_LOADED, (bundle) => {
-      if (gameState.game.entered) {
-        this.applyRoom(bundle);
-      }
+      this.applyRoom(bundle);
     });
 
     eventBus.on(Events.ROOM_TRANSITION, async ({ direction }) => {
@@ -88,7 +95,7 @@ export class Game {
       this.disposeGroup(this.currentGallery.group);
     }
 
-    this.currentGallery = this.galleryBuilder.build(bundle.themeId);
+    this.currentGallery = this.galleryBuilder.build(bundle.themeId, bundle);
     this.scene.add(this.currentGallery.group);
 
     this.scene.background = new THREE.Color(this.currentGallery.fogColor);
@@ -154,6 +161,9 @@ export class Game {
     const delta = this.clock.getDelta();
     if (this.collisionBounds && gameState.game.entered) {
       this.player.update(delta, this.collisionBounds);
+    }
+    if (this.currentGallery?.artifactMesh) {
+      tickArtifactIdle(this.currentGallery.artifactMesh, delta);
     }
     this.checkProximity();
     this.renderer.render(this.scene, this.camera);

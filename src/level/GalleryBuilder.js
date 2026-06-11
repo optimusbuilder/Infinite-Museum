@@ -1,37 +1,23 @@
 import * as THREE from 'three';
 import { WORLD } from '../core/Constants.js';
+import { buildProceduralArtifact } from '../artifacts/ProceduralArtifact.js';
 import { buildExitDoor, buildPedestal, getTheme } from './themes.js';
 
-function makeMaterial(color, options = {}) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness: options.roughness ?? 0.85,
-    metalness: options.metalness ?? 0.05,
-    ...options,
-  });
-}
-
-function buildPlaceholderArtifact(accentColor) {
-  const geo = new THREE.BoxGeometry(0.45, 0.45, 0.45);
-  const mat = makeMaterial(accentColor, { roughness: 0.35, metalness: 0.6 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.name = 'artifact';
-  mesh.position.set(0, 1.55, -2);
-  mesh.castShadow = true;
-  mesh.userData.isArtifact = true;
-  mesh.userData.interactPosition = new THREE.Vector3(0, 0, -2);
-  return mesh;
-}
-
 export class GalleryBuilder {
-  build(themeId = 'victorian') {
+  build(themeId = 'victorian', roomBundle = null) {
     const theme = getTheme(themeId);
     const group = theme.buildShell();
     group.name = 'gallery-room';
 
     const pedestal = buildPedestal(theme.pedestalStyle);
     const exitDoor = buildExitDoor(theme);
-    const artifact = buildPlaceholderArtifact(theme.accentColor);
+    const artifact = roomBundle?.meshRecipe
+      ? buildProceduralArtifact(roomBundle.meshRecipe)
+      : buildProceduralArtifact({
+          baseShape: 'relic',
+          accentColor: '#b8860b',
+          materials: ['bronze'],
+        });
 
     group.add(pedestal);
     group.add(exitDoor);
