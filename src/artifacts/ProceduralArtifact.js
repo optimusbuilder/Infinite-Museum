@@ -25,6 +25,8 @@ function mat(color, opts = {}) {
   });
 }
 
+const PEDESTAL_Z = 2;
+
 function toColor(hex) {
   return new THREE.Color(hex);
 }
@@ -875,8 +877,6 @@ export function buildProceduralArtifact(meshRecipe) {
 
   return group;
 }
-
-const PEDESTAL_Z = 2;
 
 export function tickArtifactIdle(artifact, delta) {
   if (artifact?.userData.idleRotation) {

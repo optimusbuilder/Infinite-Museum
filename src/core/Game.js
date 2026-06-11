@@ -15,7 +15,7 @@ import { PlaqueUI } from '../ui/PlaqueUI.js';
 
 export class Game {
   constructor() {
-    this.clock = new THREE.Clock();
+    this.timer = new THREE.Timer();
     this.galleryBuilder = new GalleryBuilder();
     this.roomManager = new RoomManager();
     this.currentGallery = null;
@@ -26,16 +26,20 @@ export class Game {
   }
 
   async init() {
-    this.setupRenderer();
-    this.setupScene();
-    this.setupCamera();
-    this.setupSystems();
-    this.setupUI();
-    this.setupEventListeners();
+    try {
+      this.setupRenderer();
+      this.setupScene();
+      this.setupCamera();
+      this.setupSystems();
+      this.setupUI();
+      this.setupEventListeners();
 
-    await this.roomManager.init();
+      await this.roomManager.init();
 
-    this.renderer.setAnimationLoop(() => this.animate());
+      this.renderer.setAnimationLoop((timestamp) => this.animate(timestamp));
+    } catch (e) {
+      console.error('[Game] Init failed:', e);
+    }
   }
 
   setupRenderer() {
@@ -43,7 +47,7 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     document.getElementById('game-container').appendChild(this.renderer.domElement);
     window.addEventListener('resize', () => this.onResize());
   }
@@ -191,8 +195,9 @@ export class Game {
     });
   }
 
-  animate() {
-    const delta = this.clock.getDelta();
+  animate(timestamp) {
+    this.timer.update(timestamp);
+    const delta = this.timer.getDelta();
     if (this.navigationBounds && gameState.game.entered) {
       this.player.update(delta, this.navigationBounds);
     }
