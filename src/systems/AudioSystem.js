@@ -8,12 +8,16 @@ const THEME_FOOTSTEPS = {
   void: { freq: 260, decay: 0.1, filter: 1100, gain: 0.14 },
 };
 
+const MUSIC_PATH = '/audio/museum-ambient.mp3';
+const MUSIC_VOLUME = 0.18;
+
 export class AudioSystem {
   constructor() {
     this.ctx = null;
     this.enabled = false;
     this.currentTheme = 'victorian';
     this.ambientNode = null;
+    this.musicEl = null;
 
     eventBus.on(Events.GAME_ENTER, () => this.start());
     eventBus.on(Events.PLAYER_FOOTSTEP, ({ speed }) => this.playFootstep(speed));
@@ -34,9 +38,20 @@ export class AudioSystem {
       }
       this.enabled = true;
       this.updateAmbient();
+      this.startMusic();
     } catch (e) {
       console.warn('[AudioSystem] Could not start audio:', e.message);
     }
+  }
+
+  startMusic() {
+    if (this.musicEl) return;
+    this.musicEl = new Audio(MUSIC_PATH);
+    this.musicEl.loop = true;
+    this.musicEl.volume = MUSIC_VOLUME;
+    this.musicEl.play().catch((e) => {
+      console.warn('[AudioSystem] Music autoplay blocked:', e.message);
+    });
   }
 
   updateAmbient() {
