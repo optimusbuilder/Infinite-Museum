@@ -19,7 +19,6 @@ export class Game {
     this.galleryBuilder = new GalleryBuilder();
     this.roomManager = new RoomManager();
     this.currentGallery = null;
-    this.collisionBounds = null;
     this.navigationBounds = new NavigationBounds();
     this.transitioning = false;
 

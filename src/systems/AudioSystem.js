@@ -1,5 +1,4 @@
 import { eventBus, Events } from '../core/EventBus.js';
-import { gameState } from '../core/GameState.js';
 
 const THEME_FOOTSTEPS = {
   victorian: { freq: 180, decay: 0.12, filter: 900, gain: 0.22 },
@@ -24,24 +23,27 @@ export class AudioSystem {
         this.updateAmbient();
       }
     });
-    eventBus.on(Events.GAME_PAUSE, ({ paused }) => {
-      if (this.ctx?.state === 'running' && paused) this.ctx.suspend();
-      else if (this.ctx?.state === 'suspended' && !paused && this.enabled) this.ctx.resume();
-    });
   }
 
-  start() {
+  async start() {
     if (this.enabled) return;
-    this.ctx = new AudioContext();
-    this.enabled = true;
-    this.updateAmbient();
+    try {
+      this.ctx = new AudioContext();
+      if (this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+      this.enabled = true;
+      this.updateAmbient();
+    } catch (e) {
+      console.warn('[AudioSystem] Could not start audio:', e.message);
+    }
   }
 
   updateAmbient() {
-    if (!this.ctx) return;
+    if (!this.ctx || !this.enabled) return;
 
     if (this.ambientNode) {
-      this.ambientNode.stop();
+      try { this.ambientNode.stop(); } catch (_) { /* already stopped */ }
       this.ambientNode.disconnect();
     }
 
@@ -65,7 +67,7 @@ export class AudioSystem {
   }
 
   playFootstep(speed) {
-    if (!this.ctx || !this.enabled || gameState.game.paused) return;
+    if (!this.ctx || !this.enabled) return;
 
     const cfg = THEME_FOOTSTEPS[this.currentTheme] ?? THEME_FOOTSTEPS.victorian;
     const t = this.ctx.currentTime;

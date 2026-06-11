@@ -10,7 +10,6 @@ export class InputSystem {
     this.onKeyDown = (e) => {
       if (!this.enabled) return;
       this.keys.add(e.code);
-      if (e.code === 'Escape') this.exitPointerLock();
     };
     this.onKeyUp = (e) => this.keys.delete(e.code);
     this.onMouseMove = (e) => {
@@ -18,22 +17,24 @@ export class InputSystem {
       eventBus.emit('input:mousemove', { movementX: e.movementX, movementY: e.movementY });
     };
     this.onPointerLockChange = () => {
+      const wasLocked = gameState.game.pointerLocked;
       gameState.game.pointerLocked = document.pointerLockElement === this.domElement;
-      if (!gameState.game.pointerLocked && gameState.game.entered) {
-        gameState.game.paused = true;
-        eventBus.emit(Events.GAME_PAUSE, { paused: true });
+      if (wasLocked && !gameState.game.pointerLocked) {
+        eventBus.emit('input:pointerlockLost');
       }
     };
-    this.onClick = () => {
-      if (!this.enabled || gameState.game.pointerLocked) return;
-      this.requestPointerLock();
+    this.onCanvasClick = () => {
+      if (!this.enabled) return;
+      if (!gameState.game.pointerLocked) {
+        this.requestPointerLock();
+      }
     };
 
     document.addEventListener('keydown', this.onKeyDown);
     document.addEventListener('keyup', this.onKeyUp);
     document.addEventListener('mousemove', this.onMouseMove);
     document.addEventListener('pointerlockchange', this.onPointerLockChange);
-    document.addEventListener('click', this.onClick);
+    this.domElement.addEventListener('click', this.onCanvasClick);
   }
 
   enable() {
@@ -51,9 +52,9 @@ export class InputSystem {
   }
 
   requestPointerLock() {
-    this.domElement.requestPointerLock();
-    gameState.game.paused = false;
-    eventBus.emit(Events.GAME_PAUSE, { paused: false });
+    this.domElement.requestPointerLock().catch(() => {
+      // Pointer lock denied — WASD still works, just no mouse look.
+    });
   }
 
   exitPointerLock() {
@@ -67,6 +68,6 @@ export class InputSystem {
     document.removeEventListener('keyup', this.onKeyUp);
     document.removeEventListener('mousemove', this.onMouseMove);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
-    document.removeEventListener('click', this.onClick);
+    this.domElement.removeEventListener('click', this.onCanvasClick);
   }
 }

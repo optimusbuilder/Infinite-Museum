@@ -8,7 +8,6 @@ class GameState {
   reset() {
     this.game = {
       entered: false,
-      paused: false,
       pointerLocked: false,
     };
     this.museum = {

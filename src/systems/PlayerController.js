@@ -7,7 +7,6 @@ export class PlayerController {
   constructor(camera, input) {
     this.camera = camera;
     this.input = input;
-    this.velocity = new THREE.Vector3();
     this.direction = new THREE.Vector3();
     this.moveVector = new THREE.Vector3();
     this.stepTimer = 0;
@@ -28,6 +27,8 @@ export class PlayerController {
     gameState.player.position.x = x;
     gameState.player.position.y = y;
     gameState.player.position.z = z;
+    gameState.player.yaw = 0;
+    gameState.player.pitch = 0;
     this.syncCamera();
   }
 
@@ -40,17 +41,17 @@ export class PlayerController {
   }
 
   update(delta, navigationBounds) {
-    if (!gameState.game.entered || gameState.game.paused) return;
+    if (!gameState.game.entered) return;
 
     const speed = this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight')
       ? PLAYER_CONFIG.SPRINT_SPEED
       : PLAYER_CONFIG.WALK_SPEED;
 
     this.direction.set(0, 0, 0);
-    if (this.input.isDown('KeyW')) this.direction.z -= 1;
-    if (this.input.isDown('KeyS')) this.direction.z += 1;
-    if (this.input.isDown('KeyA')) this.direction.x -= 1;
-    if (this.input.isDown('KeyD')) this.direction.x += 1;
+    if (this.input.isDown('KeyW') || this.input.isDown('ArrowUp')) this.direction.z -= 1;
+    if (this.input.isDown('KeyS') || this.input.isDown('ArrowDown')) this.direction.z += 1;
+    if (this.input.isDown('KeyA') || this.input.isDown('ArrowLeft')) this.direction.x -= 1;
+    if (this.input.isDown('KeyD') || this.input.isDown('ArrowRight')) this.direction.x += 1;
 
     const isMoving = this.direction.lengthSq() > 0;
 
