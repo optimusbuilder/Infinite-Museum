@@ -47,6 +47,7 @@ export function generateRoomBundleMock(seed) {
       baseShape,
       accentColor,
       materials: pickMaterials(seed),
+      seed,
     },
     generatedAt: new Date().toISOString(),
     source: 'mock',

@@ -2,7 +2,9 @@ const ALLOWED_THEMES = new Set([
   'victorian', 'brutalist', 'glass_pavilion', 'submerged', 'void',
 ]);
 const ALLOWED_SHAPES = new Set([
-  'compass', 'vessel', 'mask', 'crown', 'orb', 'tablet', 'tool', 'relic',
+  'painting', 'sculpture', 'vase', 'weapon', 'shield', 'jewelry',
+  'compass', 'mask', 'crown', 'orb', 'tablet', 'relic',
+  'vessel', 'tool',
 ]);
 const ALLOWED_MATERIALS = new Set([
   'bronze', 'crystal', 'obsidian', 'amber', 'silver', 'jade', 'iron',
@@ -26,7 +28,7 @@ JSON schema:
   "description": "string — 2-3 sentences, museum label tone, includes the wink",
   "curatorNote": "string or null — optional italic footnote for the wink",
   "themeId": "one of: victorian, brutalist, glass_pavilion, submerged, void",
-  "baseShape": "one of: compass, vessel, mask, crown, orb, tablet, tool, relic",
+  "baseShape": "one of: painting, sculpture, vase, weapon, shield, jewelry, compass, mask, crown, orb, tablet, relic",
   "materials": ["1-2 from: bronze, crystal, obsidian, amber, silver, jade, iron"],
   "accentColor": "hex color like #b8860b",
   "visualPrompt": "short phrase for 3D object appearance"

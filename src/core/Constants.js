@@ -42,13 +42,17 @@ export const THEME_LABELS = {
 };
 
 export const ARTIFACT_SHAPES = [
+  'painting',
+  'sculpture',
+  'vase',
+  'weapon',
+  'shield',
+  'jewelry',
   'compass',
-  'vessel',
   'mask',
   'crown',
   'orb',
   'tablet',
-  'tool',
   'relic',
 ];
 

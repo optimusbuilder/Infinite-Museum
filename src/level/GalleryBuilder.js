@@ -19,6 +19,8 @@ function makeMaterial(color, options = {}) {
   });
 }
 
+const WALL_DISPLAY_SHAPES = new Set(['painting', 'tablet']);
+
 export class GalleryBuilder {
   build(themeId = 'victorian', roomBundle = null) {
     const theme = getTheme(themeId);
@@ -59,8 +61,12 @@ export class GalleryBuilder {
     addCorridorLighting(root, theme, layout.entranceNear, layout.entranceFar);
     addCorridorLighting(root, theme, layout.exitNear, layout.exitFar);
 
-    const pedestal = buildPedestal(theme.pedestalStyle);
+    const baseShape = roomBundle?.meshRecipe?.baseShape ?? 'relic';
+    const isWallDisplay = WALL_DISPLAY_SHAPES.has(baseShape);
+
     const exitDoor = buildExitDoor(theme);
+    root.add(exitDoor);
+
     const artifact = roomBundle?.meshRecipe
       ? buildProceduralArtifact(roomBundle.meshRecipe)
       : buildProceduralArtifact({
@@ -69,16 +75,32 @@ export class GalleryBuilder {
           materials: ['bronze'],
         });
 
-    root.add(pedestal);
-    root.add(exitDoor);
+    if (!isWallDisplay) {
+      const pedestal = buildPedestal(theme.pedestalStyle);
+      root.add(pedestal);
+    }
+
     root.add(artifact);
 
-    const spotlight = new THREE.SpotLight(theme.accentColor, 12, 18, Math.PI / 7, 0.4, 1);
-    spotlight.position.set(0, 3.8, -1);
-    spotlight.target.position.set(0, 1.4, -2);
-    spotlight.castShadow = true;
-    root.add(spotlight);
-    root.add(spotlight.target);
+    if (isWallDisplay) {
+      const spotlight = new THREE.SpotLight(theme.accentColor, 14, 18, Math.PI / 6, 0.3, 1);
+      spotlight.position.set(0, 3.8, 1);
+      spotlight.target.position.set(0, 2.2, -WORLD.ROOM_DEPTH / 2 + 0.5);
+      spotlight.castShadow = true;
+      root.add(spotlight);
+      root.add(spotlight.target);
+
+      const fillLight = new THREE.PointLight(theme.accentColor, 0.4, 8);
+      fillLight.position.set(0, 2.2, 0);
+      root.add(fillLight);
+    } else {
+      const spotlight = new THREE.SpotLight(theme.accentColor, 12, 18, Math.PI / 7, 0.4, 1);
+      spotlight.position.set(0, 3.8, -1);
+      spotlight.target.position.set(0, 1.4, -2);
+      spotlight.castShadow = true;
+      root.add(spotlight);
+      root.add(spotlight.target);
+    }
 
     if (themeId === 'submerged') {
       const caustic = new THREE.PointLight(0x44aa99, 0.6, 12);
