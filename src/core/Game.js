@@ -5,6 +5,7 @@ import { gameState } from './GameState.js';
 import { GalleryBuilder } from '../level/GalleryBuilder.js';
 import { RoomManager } from '../room/RoomManager.js';
 import { InputSystem } from '../systems/InputSystem.js';
+import { AudioSystem } from '../systems/AudioSystem.js';
 import { NavigationBounds } from '../systems/NavigationBounds.js';
 import { PlayerController } from '../systems/PlayerController.js';
 import { tickArtifactIdle } from '../artifacts/ProceduralArtifact.js';
@@ -71,6 +72,7 @@ export class Game {
   setupSystems() {
     this.input = new InputSystem(this.renderer.domElement);
     this.player = new PlayerController(this.camera, this.input);
+    this.audio = new AudioSystem();
   }
 
   setupEventListeners() {
