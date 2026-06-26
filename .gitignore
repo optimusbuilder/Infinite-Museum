@@ -30,3 +30,6 @@ Thumbs.db
 
 # Audio stems (large files — optionally tracked with Git LFS)
 # stems/
+
+# MediaPipe model files (downloadable, ~7.5 MB)
+models/
