@@ -1,7 +1,32 @@
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
 dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
-*.local
+Thumbs.db
+
+# Environment
 .env
 .env.*
 !.env.example
+
+# Audio stems (large files — optionally tracked with Git LFS)
+# stems/
