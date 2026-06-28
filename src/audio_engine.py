@@ -5,12 +5,12 @@ Loads audio stems, plays them in sync via a sounddevice callback,
 and applies real-time gain control and DSP effects based on the
 ConductorState provided by the gesture processor.
 
-Thread-safe: the vision thread writes to a shared ConductorState;
-the audio callback reads from it.
+Lock-free design: the vision thread writes a ConductorState reference;
+the audio callback reads it. Python's GIL ensures reference assignment
+is effectively atomic for this use case.
 """
 
 import os
-import threading
 from typing import Optional
 
 import numpy as np
@@ -24,7 +24,7 @@ from config import (
     STEMS_DIR,
     STEM_NAMES,
 )
-from dsp import LowPassFilter, FeedbackDelay
+from dsp import DualModeFilter, FeedbackDelay
 from gestures import ConductorState
 
 
@@ -67,11 +67,13 @@ class AudioEngine:
         self._target_gains[0] = 0.8
 
         # ── DSP effects ───────────────────────────────────────────────────
-        self.low_pass = LowPassFilter(initial_cutoff_hz=20000.0)
+        self.filter = DualModeFilter()
         self.delay = FeedbackDelay()
 
-        # ── Thread-safe conductor state ───────────────────────────────────
-        self._lock = threading.Lock()
+        # ── Lock-free conductor state ─────────────────────────────────────
+        # Python's GIL makes simple reference assignment atomic.
+        # The vision thread writes a new ConductorState object;
+        # the audio callback reads the current reference.
         self._conductor_state = ConductorState()
 
         # ── Audio stream ──────────────────────────────────────────────────
@@ -88,12 +90,22 @@ class AudioEngine:
                 if data.ndim == 2:
                     data = data.mean(axis=1)
 
-                # Resample if needed (basic — just warn for now)
+                # Resample if sample rate doesn't match
                 if sr != SAMPLE_RATE:
-                    print(
-                        f"⚠ Warning: '{filepath}' has sample rate {sr}, "
-                        f"expected {SAMPLE_RATE}. Audio may sound pitched."
-                    )
+                    try:
+                        from scipy.signal import resample
+                        new_length = int(len(data) * SAMPLE_RATE / sr)
+                        print(
+                            f"  ⟳ Resampling '{name}.wav': {sr} Hz → {SAMPLE_RATE} Hz "
+                            f"({len(data)} → {new_length} samples)..."
+                        )
+                        data = resample(data, new_length).astype(np.float32)
+                        sr = SAMPLE_RATE
+                    except ImportError:
+                        print(
+                            f"⚠ Warning: '{filepath}' has sample rate {sr}, "
+                            f"expected {SAMPLE_RATE}. Install scipy for auto-resampling."
+                        )
 
                 self.stems.append(data)
                 self.stem_lengths.append(len(data))
@@ -104,20 +116,23 @@ class AudioEngine:
     def update_state(self, state: ConductorState):
         """
         Update the shared conductor state (called from the vision thread).
-        Thread-safe via lock.
+        Lock-free: simple reference assignment is atomic under the GIL.
         """
-        with self._lock:
-            self._conductor_state = state
+        self._conductor_state = state
 
-    def _compute_target_gains(self, finger_count: int):
+    def _compute_target_gains(self, finger_count: int, hand_active: bool):
         """
-        Set target gains based on finger count.
-        Stem 0 (Pad): always on at 0.8
-        Stem 1 (Bass): on when finger_count >= 1
-        Stem 2 (Drums): on when finger_count >= 2
-        Stem 3 (Melody): on when finger_count >= 3
+        Set target gains based on finger count and hand detection.
+        If a hand is active and finger count is 0 (clenched fist), mute all stems.
+        Otherwise, Stem 0 (Pad) is on at 0.8, and other stems activate with fingers.
         """
         targets = np.zeros(self._num_stems, dtype=np.float32)
+
+        if hand_active and finger_count == 0:
+            # Clenched fist: mute everything
+            self._target_gains = targets
+            return
+
         targets[0] = 0.8  # Pad always on
 
         stem_gains = [0.8, 0.75, 0.7, 0.65]  # Decreasing slightly to prevent clipping
@@ -146,32 +161,35 @@ class AudioEngine:
         if status:
             print(f"Audio status: {status}")
 
-        # ── Read the current conductor state (snapshot) ───────────────────
-        with self._lock:
-            state = self._conductor_state
+        # ── Read the current conductor state (lock-free snapshot) ─────────
+        state = self._conductor_state
 
         # ── Update targets from gesture ───────────────────────────────────
-        self._compute_target_gains(state.finger_count)
+        hand_active = state.left_detected or state.right_detected
+        self._compute_target_gains(state.finger_count, hand_active)
 
         # ── Update DSP parameters ─────────────────────────────────────────
-        self.low_pass.update_cutoff(state.filter_cutoff_hz)
-        self.delay.update_wet_mix(state.effect_wet_norm)
+        self.filter.update_filter(state.filter_cutoff_norm)
+        if hand_active and state.finger_count == 0:
+            # Clenched fist: maximize reverb/delay tail
+            self.delay.update_wet_mix(0.85)
+        else:
+            self.delay.update_wet_mix(state.effect_wet_norm)
 
-        # ── Read blocks from each stem ────────────────────────────────────
-        block_start = self._play_head
-        block_end = block_start + frames
+        # ── Read blocks from each stem with dynamic tempo/resampling ──────
+        T = state.tempo_factor
+
+        # Calculate lookup indices inside the circular stem buffer
+        indices = (self._play_head + np.arange(frames, dtype=np.float64) * T) % self.loop_length
+        idx_floor = np.floor(indices).astype(np.int32)
+        idx_ceil = (idx_floor + 1) % self.loop_length
+        frac = (indices - idx_floor).astype(np.float32)
 
         mix = np.zeros(frames, dtype=np.float32)
 
         for i in range(self._num_stems):
-            # Handle loop wrapping
-            if block_end <= self.loop_length:
-                chunk = self.stems[i][block_start:block_end]
-            else:
-                # Wrap around
-                part1 = self.stems[i][block_start:self.loop_length]
-                part2 = self.stems[i][0:block_end - self.loop_length]
-                chunk = np.concatenate([part1, part2])
+            # Linearly interpolate between adjacent sample indices to resample on-the-fly
+            chunk = (1.0 - frac) * self.stems[i][idx_floor] + frac * self.stems[i][idx_ceil]
 
             # ── Smooth gain ramping (linear interpolation over the block) ─
             start_gain = self._current_gains[i]
@@ -188,10 +206,10 @@ class AudioEngine:
                 self._current_gains[i] = end_gain
 
         # ── Advance play head (loop) ──────────────────────────────────────
-        self._play_head = block_end % self.loop_length
+        self._play_head = (self._play_head + frames * T) % self.loop_length
 
         # ── Apply DSP chain ───────────────────────────────────────────────
-        mix = self.low_pass.process(mix)
+        mix = self.filter.process(mix)
         mix = self.delay.process(mix)
 
         # ── Soft clipping to prevent harsh distortion ─────────────────────

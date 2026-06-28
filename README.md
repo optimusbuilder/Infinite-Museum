@@ -11,22 +11,27 @@ Ambient Conductor is a gesture-controlled music instrument that uses your webcam
 ```
 ┌──────────────────┐     Normalized Coordinates     ┌─────────────────────┐
 │   Vision Loop    │ ────────────────────────────▶  │    Audio Engine     │
-│ (MediaPipe Hands)│   Left (fingers) → Stems      │ (sounddevice +      │
-│                  │   Right (X) → Filter Cutoff    │  scipy DSP)         │
-│                  │   Right (Y) → Delay/Reverb     │                     │
+│ (MediaPipe Hands)│   Fingers → Stem Mixer        │ (sounddevice +      │
+│                  │   Wrist X → Filter Cutoff     │  scipy DSP)         │
+│                  │   Wrist Y → Delay/Reverb      │                     │
 └──────────────────┘                                └─────────────────────┘
 ```
 
 ### Controls
 
-| Hand | Gesture | Effect |
-|------|---------|--------|
-| **Left** | Fist (0 fingers) | Only the ambient pad plays |
-| **Left** | 1 finger | + Bass kicks in |
-| **Left** | 2 fingers | + Drums enter |
-| **Left** | 3 fingers | + Melody/lead unmutes |
-| **Right** | Move left ↔ right | Sweep the low-pass filter (300 Hz → 20 kHz) |
-| **Right** | Move down ↕ up | Control delay/reverb wet mix (dry → wet) |
+A single hand (either left or right) controls all components of the performance simultaneously:
+
+| Gesture / Position | Effect |
+|------|--------|
+| **Fist (0 fingers)** | Only the ambient pad plays (always active) |
+| **1 raised finger** | + Bass line unmutes |
+| **2 raised fingers** | + Drums enter |
+| **3+ raised fingers** | + Melody/lead unmutes |
+| **Move left ↔ right (X)** | Sweep the low-pass filter (300 Hz → 20 kHz) |
+| **Move down ↕ up (Y)** | Control delay/reverb wet mix (dry → wet) |
+
+> [!NOTE]
+> If you lower your hand or take it off the camera screen, the music continues playing with your last finger count (so it doesn't suddenly cut out), but the filter and echo/delay effects will reset back to their clean default values.
 
 Press **Q** or **Esc** to quit.
 

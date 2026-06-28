@@ -1,9 +1,12 @@
 """
 Ambient Conductor — Gesture Detection
 =======================================
-Counts extended fingers on the left hand (for stem control) and
-extracts right-hand position for FX mapping. Includes a temporal
+Counts extended fingers on the active hand (for stem control) and
+extracts hand position for FX mapping. Includes a temporal
 debounce buffer to prevent flickering finger counts.
+
+Single-hand operation: whichever hand is visible controls both
+stem mixing (via finger count) and DSP effects (via wrist position).
 """
 
 from dataclasses import dataclass
@@ -24,10 +27,12 @@ from vision import HandData, HandState
 @dataclass
 class ConductorState:
     """The high-level musical control state derived from hand gestures."""
-    finger_count: int = 0              # 0–5, from left hand
-    filter_cutoff_norm: float = 0.5    # 0.0–1.0, from right hand X
+    finger_count: int = 0              # 0–5, from active hand
+    filter_cutoff_norm: float = 0.5    # 0.0–1.0, from hand X position
     filter_cutoff_hz: float = 3000.0   # Mapped Hz value
-    effect_wet_norm: float = 0.0       # 0.0–1.0, from right hand Y
+    filter_mode: str = "bypass"        # "low", "high", "bypass"
+    effect_wet_norm: float = 0.0       # 0.0–1.0, from hand Y position
+    tempo_factor: float = 1.0          # 0.5–1.7x playback speed factor
     left_detected: bool = False
     right_detected: bool = False
 
@@ -87,7 +92,10 @@ def count_fingers(landmarks, handedness: str) -> int:
 class GestureProcessor:
     """
     Processes raw HandState into a debounced ConductorState.
-    Maintains a history buffer for finger count stability.
+    Maintains history buffers for finger count stability and tempo tracking.
+
+    Single-hand mode: uses whichever hand is currently tracked
+    for all controls (fingers, filter sweep, delay/reverb, tempo).
     """
 
     def __init__(self):
@@ -113,46 +121,62 @@ class GestureProcessor:
 
         return self._stable_count
 
-    def _map_cutoff(self, x_norm: float) -> float:
-        """
-        Map a normalized X coordinate (0.0–1.0) to a filter cutoff
-        frequency using an exponential scale.
-
-        Returns Hz in range [MIN_CUTOFF_HZ, MAX_CUTOFF_HZ].
-        At x=0.0 → 300 Hz (muffled), at x=1.0 → 20000 Hz (fully open).
-        """
-        # Exponential mapping: cutoff = MIN * (MAX/MIN)^x
-        return MIN_CUTOFF_HZ * (MAX_CUTOFF_HZ / MIN_CUTOFF_HZ) ** x_norm
-
     def process(self, hand_state: HandState) -> ConductorState:
         """
         Convert a HandState from the vision module into a ConductorState
         for the audio engine.
+
+        Single-hand mode: uses whichever hand is currently tracked
+        for all control axes (fingers, X filter).
         """
         state = ConductorState()
 
-        # ── Left hand → finger count (stem control) ──────────────────────
-        if hand_state.left is not None:
-            state.left_detected = True
+        # Find whichever hand is currently tracked (MediaPipe MAX_HANDS = 1)
+        active_hand = None
+        if hand_state.right is not None:
+            active_hand = hand_state.right
+        elif hand_state.left is not None:
+            active_hand = hand_state.left
+
+        if active_hand is not None:
+            # Mark which hand is detected
+            if active_hand.handedness == "Left":
+                state.left_detected = True
+            else:
+                state.right_detected = True
+
+            # Count fingers on the active hand
             raw_count = count_fingers(
-                hand_state.left.landmarks,
-                hand_state.left.handedness,
+                active_hand.landmarks,
+                active_hand.handedness,
             )
             state.finger_count = self._debounce_count(raw_count)
+
+            # Map X coordinate of the hand to dual-mode filter
+            state.filter_cutoff_norm = active_hand.wrist_x
+            if active_hand.wrist_x < 0.43:
+                state.filter_mode = "low"
+                t = active_hand.wrist_x / 0.43
+                state.filter_cutoff_hz = 100.0 * (200.0 ** t)
+            elif active_hand.wrist_x > 0.57:
+                state.filter_mode = "high"
+                t = (active_hand.wrist_x - 0.57) / 0.43
+                state.filter_cutoff_hz = 20.0 * (250.0 ** t)
+            else:
+                state.filter_mode = "bypass"
+                state.filter_cutoff_hz = 20000.0
+
+            state.effect_wet_norm = active_hand.wrist_y
+            state.tempo_factor = 1.0
         else:
-            # If left hand disappears, keep the last stable count
+            # If no hand is detected, keep the last stable finger count so music doesn't cut out
             state.finger_count = self._stable_count
 
-        # ── Right hand → filter cutoff (X) and effect wet (Y) ────────────
-        if hand_state.right is not None:
-            state.right_detected = True
-            state.filter_cutoff_norm = hand_state.right.wrist_x
-            state.filter_cutoff_hz = self._map_cutoff(hand_state.right.wrist_x)
-            state.effect_wet_norm = hand_state.right.wrist_y
-        else:
-            # Keep defaults (mid cutoff, no effect)
+            # Reset DSP effects to default/dry state when hand is removed
             state.filter_cutoff_norm = 0.5
-            state.filter_cutoff_hz = self._map_cutoff(0.5)
+            state.filter_mode = "bypass"
+            state.filter_cutoff_hz = 20000.0
             state.effect_wet_norm = 0.0
+            state.tempo_factor = 1.0
 
         return state

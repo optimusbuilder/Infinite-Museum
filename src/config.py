@@ -2,7 +2,7 @@
 Ambient Conductor — Configuration Constants
 =============================================
 Central configuration for sample rates, buffer sizes, camera settings,
-MediaPipe landmark IDs, and audio mapping ranges.
+MediaPipe landmark IDs, audio mapping ranges, and HUD design system.
 """
 
 # ─── Audio ────────────────────────────────────────────────────────────────────
@@ -15,11 +15,16 @@ STEM_DURATION_SEC = 16     # Length of generated placeholder stems
 CAMERA_INDEX = 0
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 720
+TARGET_FPS = 30            # Cap the main loop at ~30 FPS
 
 # ─── MediaPipe Hands ──────────────────────────────────────────────────────────
-MAX_HANDS = 2
-MIN_DETECTION_CONFIDENCE = 0.7
-MIN_TRACKING_CONFIDENCE = 0.5
+MAX_HANDS = 1
+MIN_DETECTION_CONFIDENCE = 0.5    # Lowered from 0.7 for more robust tracking
+MIN_TRACKING_CONFIDENCE = 0.4     # Lowered from 0.5 for fewer hand drops
+
+# Grace period: keep reporting last hand position for this many frames
+# after tracking is lost, to prevent single-frame drops from killing the state.
+HAND_LOST_GRACE_FRAMES = 8        # ~260ms at 30 FPS
 
 # Landmark IDs (from MediaPipe hand model)
 WRIST = 0
@@ -57,17 +62,12 @@ FINGER_PIPS = [INDEX_PIP, MIDDLE_PIP, RING_PIP, PINKY_PIP]
 SMOOTHING_FACTOR = 0.25    # EMA alpha (lower = smoother but laggier)
 
 # ─── Audio Mapping Ranges ────────────────────────────────────────────────────
-MIN_CUTOFF_HZ = 300.0      # Right hand X at far left
-MAX_CUTOFF_HZ = 20000.0    # Right hand X at far right
+MIN_CUTOFF_HZ = 300.0      # Hand at far left
+MAX_CUTOFF_HZ = 20000.0    # Hand at far right
 
 # Delay / reverb-like effect
 DELAY_TIME_MS = 250.0      # Fixed delay line length
 DELAY_FEEDBACK = 0.4       # Feedback amount (0.0 – 1.0, keep < 0.7 to avoid runaway)
-
-# Volume smoothing ramp (prevents clicks on stem mute/unmute)
-VOLUME_RAMP_FRAMES = int(SAMPLE_RATE * 0.1 / BLOCK_SIZE)  # ~100 ms in blocks
-if VOLUME_RAMP_FRAMES < 1:
-    VOLUME_RAMP_FRAMES = 1
 
 # ─── Gesture Debounce ────────────────────────────────────────────────────────
 FINGER_COUNT_DEBOUNCE_FRAMES = 3   # Consecutive frames required before state change
@@ -76,10 +76,52 @@ FINGER_COUNT_DEBOUNCE_FRAMES = 3   # Consecutive frames required before state ch
 STEM_NAMES = ["pad", "bass", "drums", "melody"]
 STEMS_DIR = "stems"
 
-# ─── HUD Colors (BGR for OpenCV) ─────────────────────────────────────────────
-HUD_BG_COLOR = (20, 20, 20)
-HUD_TEXT_COLOR = (220, 220, 220)
-HUD_ACCENT_PRIMARY = (237, 58, 124)     # Violet-ish (BGR)
-HUD_ACCENT_SECONDARY = (212, 182, 6)    # Cyan-ish (BGR)
-HUD_ACTIVE_COLOR = (129, 185, 16)       # Green (BGR)
-HUD_INACTIVE_COLOR = (80, 80, 80)       # Dark gray
+# ─── HUD Design System (BGR for OpenCV) ──────────────────────────────────────
+
+# Panel styling
+HUD_PANEL_ALPHA = 0.75         # Panel transparency
+HUD_PANEL_RADIUS = 18          # Rounded corner radius
+
+# Core palette — dark mode with vibrant accents
+HUD_BG_COLOR = (15, 15, 20)           # Near-black panel background
+HUD_BG_COLOR_2 = (25, 25, 35)         # Slightly lighter for depth
+HUD_TEXT_COLOR = (210, 210, 215)       # Soft white text
+HUD_TEXT_DIM = (120, 120, 130)         # Dimmed secondary text
+HUD_BORDER_COLOR = (50, 50, 60)       # Subtle panel border
+
+# Accent colors (BGR)
+HUD_ACCENT_CYAN = (230, 200, 50)      # Cyan / teal (primary accent)
+HUD_ACCENT_MAGENTA = (200, 50, 230)   # Magenta / pink (secondary accent)
+HUD_ACCENT_PURPLE = (235, 100, 160)   # Soft purple
+HUD_ACCENT_ORANGE = (60, 140, 255)    # Warm orange
+
+# Status colors (BGR)
+HUD_ACTIVE_COLOR = (180, 245, 80)     # Bright lime green
+HUD_INACTIVE_COLOR = (55, 55, 60)     # Dark muted gray
+
+# Gradient bar colors — start and end (BGR)
+HUD_FILTER_BAR_START = (230, 180, 30)   # Cyan
+HUD_FILTER_BAR_END = (200, 50, 230)     # Magenta
+HUD_FX_BAR_START = (235, 100, 160)      # Purple
+HUD_FX_BAR_END = (60, 140, 255)         # Orange
+
+# Glow effect
+HUD_GLOW_RADIUS = 20
+HUD_GLOW_ALPHA = 0.3
+
+# Stem indicator colors when active (BGR) — each stem gets its own color
+HUD_STEM_COLORS = [
+    (230, 200, 50),    # PAD:    Cyan
+    (200, 50, 230),    # BASS:   Magenta
+    (60, 200, 255),    # DRUMS:  Orange/Gold
+    (180, 245, 80),    # MELODY: Lime green
+]
+
+# Hand landmark rendering
+HUD_HAND_SKELETON_COLOR = (230, 200, 50)   # Cyan skeleton
+HUD_HAND_JOINT_COLOR = (255, 255, 255)     # White joints
+HUD_HAND_GLOW_COLOR = (230, 200, 50)       # Glow around joints
+HUD_EDGE_WARNING_COLOR = (50, 50, 220)     # Red warning at frame edges
+
+# Smooth interpolation speed for HUD values (0.0–1.0, higher = faster)
+HUD_LERP_SPEED = 0.15
